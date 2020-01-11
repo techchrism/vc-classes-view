@@ -1,4 +1,4 @@
-# moorpark-classes
+# vc-classes-view
 
 ## Project setup
 ```
