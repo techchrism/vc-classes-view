@@ -1,5 +1,10 @@
+const serverIndex = require('./src/server/');
+
 module.exports = {
-  "transpileDependencies": [
-    "vuetify"
-  ]
-}
+    'transpileDependencies': [
+        'vuetify'
+    ],
+    devServer: {
+        before: serverIndex
+    }
+};
