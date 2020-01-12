@@ -104,10 +104,7 @@ module.exports = (app) =>
         }).then((response) =>
         {
             console.log('Loading data...');
-    
-            const columnNames = ['status', 'crn', 'preCoreq', 'credits',
-                '', '', '', '', '', '', '', '',
-                'location', 'cap', 'act', 'rem', 'instructor', 'date', 'weeks'];
+            
             let flags = {
                 enteredTable: false,
                 /*subjectHeader: false,
@@ -139,6 +136,24 @@ module.exports = (app) =>
                     flags.currentClass = false;
                 }
             };
+            let fillPreTime = (columns, obj, offset) =>
+            {
+                obj.status = columns[offset].text.toLowerCase();
+                obj.crn = columns[offset + 1].text.trim();
+                obj.preCoreq = (columns[offset + 2].text.length !== 0);
+                obj.credits = columns[offset + 3].text.trim();
+            };
+            let fillPostTime = (columns, obj, offset) =>
+            {
+                obj.location = columns[offset].text.trim();
+                obj.capacity = columns[offset + 1].text;
+                obj.actual = columns[offset + 2].text;
+                obj.remaining = columns[offset + 3].text;
+                obj.instructor = columns[offset + 4].text;
+                obj.date = columns[offset + 5].text;
+                obj.weeks = parseInt(columns[offset + 6].text);
+                obj.hasNote = (columns[offset + 7].text.length !== 0);
+            };
             let onRow = (columns) =>
             {
                 if(columns.length === 1)
@@ -163,37 +178,55 @@ module.exports = (app) =>
                 }
                 else
                 {
-                    if(columns.length === 20 && !columns[0].attribs.class.startsWith('column_header'))
+                    if(columns[0].attribs.hasOwnProperty('class') && columns[0].attribs.class.startsWith('column_header'))
+                    {
+                        return;
+                    }
+                    
+                    if(columns.length === 20)
                     {
                         // New class
                         addClass();
-
                         flags.currentClass = true;
-
-                        state.classData.status = columns[0].text.toLowerCase();
-                        state.classData.crn = columns[1].text.trim();
-                        state.classData.preCoreq = (columns[2].text.length !== 0);
-                        state.classData.credits = columns[3].text.trim();
+                        fillPreTime(columns, state.classData, 0);
                         state.classData.days = '';
                         for(let i = 4; i < 11; i++)
                         {
                             state.classData.days += columns[i].text.trim();
                         }
                         state.classData.time = columns[11].text;
-                        state.classData.location = columns[12].text;
-                        state.classData.capacity = columns[13].text;
-                        state.classData.actual = columns[14].text;
-                        state.classData.remaining = columns[15].text;
-                        state.classData.instructor = columns[16].text;
-                        state.classData.date = columns[17].text;
-                        state.classData.weeks = parseInt(columns[18].text);
-                        state.classData.hasNote = (columns[19].text.length !== 0);
+                        fillPostTime(columns, state.classData, 12);
                     }
-    
-                    if(columns[0].text === 'End of report')
+                    else if(columns.length === 13)
+                    {
+                        addClass();
+                        flags.currentClass = true;
+                        // 7 columns shorter from missing day info
+                        fillPreTime(columns, state.classData, 0);
+                        if(columns[4].text.trim().startsWith('Distance Education Class'))
+                        {
+                            state.classData.distanceEducation = true;
+                        }
+                        else
+                        {
+                            state.classData.otherTime = columns[4].text.trim();
+                        }
+                        fillPostTime(columns, state.classData, 5);
+                    }
+                    else if(columns[0].text === 'End of report')
                     {
                         addClass();
                         console.log('Reached end');
+                    }
+                    else
+                    {
+                        console.log('Unhandled (' + columns.length + '):');
+                        let fullStr = '';
+                        for(let i = 0; i < columns.length; i++)
+                        {
+                            fullStr += columns[i].text + ';';
+                        }
+                        console.log('    ' + fullStr);
                     }
                 }
             };
