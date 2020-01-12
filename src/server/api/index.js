@@ -107,12 +107,9 @@ module.exports = (app) =>
             
             let flags = {
                 enteredTable: false,
-                /*subjectHeader: false,
-                crnHeader: false,
-                newRow: false,
-                classRow: false,*/
                 getColumnText: false,
-                currentClass: false
+                currentClass: false,
+                centerTag: false
             };
             let state = {
                 classData: {},
@@ -122,6 +119,7 @@ module.exports = (app) =>
                 currentColumn: {}
             };
             let classes = [];
+            let numClasses = '';
             
             let addClass = () =>
             {
@@ -242,26 +240,6 @@ module.exports = (app) =>
                             state.classData.extraLocation = columns[4].text.trim();
                             state.classData.extraDate = columns[6].text.trim();
                         }
-                        else
-                        {
-                            console.log('Unhandled (' + columns.length + '):');
-                            let fullStr = '';
-                            for(let i = 0; i < columns.length; i++)
-                            {
-                                fullStr += columns[i].text + ';';
-                            }
-                            console.log('    ' + fullStr);
-                        }
-                    }
-                    else
-                    {
-                        console.log('REALLY Unhandled (' + columns.length + '):');
-                        let fullStr = '';
-                        for(let i = 0; i < columns.length; i++)
-                        {
-                            fullStr += columns[i].text + ';';
-                        }
-                        console.log('    ' + fullStr);
                     }
                 }
             };
@@ -279,10 +257,23 @@ module.exports = (app) =>
                         state.currentColumn.text = '';
                         flags.getColumnText = true;
                     }
+                    
+                    if(name === 'center')
+                    {
+                        flags.centerTag = true;
+                    }
                 },
                 ontext(text)
                 {
-                    state.currentColumn.text += text;
+                    if(flags.getColumnText)
+                    {
+                        state.currentColumn.text += text;
+                    }
+                    else if(flags.centerTag)
+                    {
+                        flags.centerTag = false;
+                        numClasses = text.trim();
+                    }
                 },
                 onclosetag(tagname)
                 {
@@ -309,6 +300,8 @@ module.exports = (app) =>
             parser.end();
             
             res.send(JSON.stringify(classes, null, 4));
+            console.log(numClasses);
+            console.log('(got ' + classes.length + ' of them)');
             
         }).catch(function (error)
         {
