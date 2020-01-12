@@ -1,9 +1,8 @@
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 const axios = require('axios').default;
 const cheerio = require('cheerio');
-const htmlparser2 = require("htmlparser2");
+const htmlparser2 = require('htmlparser2');
 
 // Initialize the API
 module.exports = (app) =>
@@ -39,12 +38,12 @@ module.exports = (app) =>
         });
     });
     
+    // Parameter definitions for the POST request
     const locations = {
         moorpark: 1,
         oxnard: 2,
         ventura: 3
     };
-    
     const seasons = {
         spring: {
             term: '03',
@@ -95,7 +94,7 @@ module.exports = (app) =>
         const formData = 'TERM=' + req.params.year + seasons[req.params.season.toLowerCase()].term +
             '&TERM_DESC=' + seasons[req.params.season.toLowerCase()].desc + '%20' + req.params.year + formStr;
         
-        console.log('Posting data...');
+        // Send the POST request
         axios.post('https://ssb.vcccd.edu/prod/pw_pub_sched.p_listthislist', formData, {
             headers:
             {
@@ -103,25 +102,37 @@ module.exports = (app) =>
             }
         }).then((response) =>
         {
-            console.log('Loading data...');
-            
+            // Flags for parsing the html data
             let flags = {
+                // True when in the primary table (rows contain classes)
                 enteredTable: false,
+                // True when in a column with the desire to save column text to state
                 getColumnText: false,
+                // True when currently reading/creating a class
                 currentClass: false,
+                // True when the center tag has been encountered and the data is to be saved
+                // Used for confirming the number of classes ("You have 1234 class(es) displayed....")
                 centerTag: false
             };
+            // State for parsing the html data
             let state = {
+                // Object for the current class data
                 classData: {},
+                // Object that holds the class name info (code, name)
                 className: {},
+                // Object that holds the class subject info (code, name)
                 subject: {},
+                // Holds all the columns for a single row. Used to parse row-by-row rather than tag-by-tag
                 columns: [],
+                // Current column data (attribs, text). Gets added to the columns array.
                 currentColumn: {}
             };
+            // Finalized classes
             let classes = [];
             let numClasses = '';
             
-            let addClass = () =>
+            // Finalizes the class if one is in progress
+            function addClass()
             {
                 if(flags.currentClass)
                 {
@@ -133,15 +144,19 @@ module.exports = (app) =>
                     state.classData = {};
                     flags.currentClass = false;
                 }
-            };
-            let fillPreTime = (columns, obj, offset) =>
+            }
+            
+            // Fills in the information *before* the time columns
+            function fillPreTime(columns, obj, offset)
             {
                 obj.status = columns[offset].text.toLowerCase();
                 obj.crn = columns[offset + 1].text.trim();
                 obj.preCoreq = (columns[offset + 2].text.length !== 0);
                 obj.credits = columns[offset + 3].text.trim();
-            };
-            let fillPostTime = (columns, obj, offset) =>
+            }
+            
+            // Fills in the information *after* the time columns
+            function fillPostTime(columns, obj, offset)
             {
                 obj.location = columns[offset].text.trim();
                 obj.capacity = columns[offset + 1].text;
@@ -151,9 +166,12 @@ module.exports = (app) =>
                 obj.date = columns[offset + 5].text;
                 obj.weeks = parseInt(columns[offset + 6].text);
                 obj.hasNote = (columns[offset + 7].text.length !== 0);
-            };
-            let onRow = (columns) =>
+            }
+            
+            // Callback function that gets called whenever a full row has been parsed
+            function onRow(columns)
             {
+                // if the column length is 1, it's a class/subject header
                 if(columns.length === 1)
                 {
                     addClass();
@@ -176,16 +194,20 @@ module.exports = (app) =>
                 }
                 else
                 {
+                    // Ignore table headers
                     if(columns[0].attribs.hasOwnProperty('class') && columns[0].attribs.class.startsWith('column_header'))
                     {
                         return;
                     }
                     
+                    // If the row is 20 columns, it's a full row with a new class in it
                     if(columns.length === 20)
                     {
-                        // New class
+                        // Finalize any prior classes
                         addClass();
                         flags.currentClass = true;
+                        
+                        // Fill in data
                         fillPreTime(columns, state.classData, 0);
                         state.classData.days = '';
                         for(let i = 4; i < 11; i++)
@@ -197,8 +219,10 @@ module.exports = (app) =>
                     }
                     else if(columns.length === 13)
                     {
+                        // If the row is 13 columns, it's a new class just without the class day info
                         addClass();
                         flags.currentClass = true;
+                        
                         // 7 columns shorter from missing day info
                         fillPreTime(columns, state.classData, 0);
                         if(columns[4].text.trim().startsWith('Distance Education Class'))
@@ -213,18 +237,22 @@ module.exports = (app) =>
                     }
                     else if(columns[0].text === 'End of report')
                     {
+                        // Finalize last class when the end has been reached
                         addClass();
                         console.log('Reached end');
                     }
                     else if(columns[1].text === '&')
                     {
-                        // Extra information for the class in the last row
+                        // Extra information for the class in the prior row
+                        // First column is empty, second is "&"
                         if(columns.length === 3)
                         {
+                            // Three columns means an extra note
                             state.classData.extraNote = columns[2].text.trim();
                         }
                         else if(columns.length === 14)
                         {
+                            // 14 columns is a full extra date/time row (for some classes with labs)
                             state.classData.extraDays = '';
                             for(let i = 2; i < 9; i++)
                             {
@@ -236,21 +264,27 @@ module.exports = (app) =>
                         }
                         else if(columns.length === 7)
                         {
+                            // 7 columns is a partial extra date/time row (for partial distance classes or TBA info)
                             state.classData.extraTime = columns[3].text.trim();
                             state.classData.extraLocation = columns[4].text.trim();
                             state.classData.extraDate = columns[6].text.trim();
                         }
                     }
                 }
-            };
+            }
+            
+            // Use htmlparser2 instead of cheerio for speed
+            // Constructing a full DOM isn't necessary
             const parser = new htmlparser2.Parser({
                 onopentag(name, attribs)
                 {
+                    // Flag when the main table has been entered
                     if(name === 'table' && attribs.width === '100%')
                     {
                         flags.enteredTable = true;
                     }
     
+                    // Flag to read column text in the main table
                     if(flags.enteredTable && name === 'td')
                     {
                         state.currentColumn.attribs = attribs;
@@ -258,6 +292,7 @@ module.exports = (app) =>
                         flags.getColumnText = true;
                     }
                     
+                    // Flag to read the center tag
                     if(name === 'center')
                     {
                         flags.centerTag = true;
@@ -265,6 +300,7 @@ module.exports = (app) =>
                 },
                 ontext(text)
                 {
+                    // Save column text or center tag if either flags
                     if(flags.getColumnText)
                     {
                         state.currentColumn.text += text;
@@ -277,11 +313,13 @@ module.exports = (app) =>
                 },
                 onclosetag(tagname)
                 {
+                    // When the main table is exited
                     if(tagname === 'table' && flags.enteredTable)
                     {
                         flags.enteredTable = false;
                     }
                     
+                    // Save the column when it's exited
                     if(flags.getColumnText && tagname === 'td')
                     {
                         flags.getColumnText = false;
@@ -289,6 +327,7 @@ module.exports = (app) =>
                         state.currentColumn = {};
                     }
                     
+                    // Trigger the "onRow" callback when a full fow has finished
                     if(flags.enteredTable && tagname === 'tr')
                     {
                         onRow(state.columns);
@@ -299,10 +338,10 @@ module.exports = (app) =>
             parser.write(response.data);
             parser.end();
             
+            // Send the classes as JSON and compare in console
             res.send(JSON.stringify(classes, null, 4));
             console.log(numClasses);
             console.log('(got ' + classes.length + ' of them)');
-            
         }).catch(function (error)
         {
             console.log(error);
