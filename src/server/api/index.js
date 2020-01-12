@@ -159,9 +159,9 @@ module.exports = (app) =>
             function fillPostTime(columns, obj, offset)
             {
                 obj.location = columns[offset].text.trim();
-                obj.capacity = columns[offset + 1].text;
-                obj.actual = columns[offset + 2].text;
-                obj.remaining = columns[offset + 3].text;
+                obj.capacity = parseInt(columns[offset + 1].text);
+                obj.actual = parseInt(columns[offset + 2].text);
+                obj.remaining = parseInt(columns[offset + 3].text);
                 obj.instructor = columns[offset + 4].text;
                 obj.date = columns[offset + 5].text;
                 obj.weeks = parseInt(columns[offset + 6].text);
