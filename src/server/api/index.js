@@ -20,9 +20,11 @@ module.exports = (app) =>
             // Get the available semesters/terms
             $('select[name="term"]').children().each((i, item) =>
             {
+                let split = item.children[0].data.split(' ');
                 terms.push({
                     name: item.children[0].data,
-                    value: item.attribs.value
+                    value: item.attribs.value,
+                    apiValue: split[0].toLowerCase() + '-' + split[1]
                 });
             });
     
@@ -32,9 +34,11 @@ module.exports = (app) =>
                 // Exclude the <all> option
                 if(item.attribs.value !== '%')
                 {
+                    let collegeName = item.children[0].data.trim();
                     locations.push({
-                        name: item.children[0].data.trim(),
-                        value: item.attribs.value
+                        name: collegeName,
+                        value: item.attribs.value,
+                        apiValue: collegeName.substr(0, collegeName.length - 8).toLowerCase()
                     });
                 }
             });
@@ -63,7 +67,7 @@ module.exports = (app) =>
             desc: 'Fall'
         }
     };
-    const formStr = '&sel_subj=dummy&sel_day=dummy&sel_schd=dummy&sel_camp=dummy&sel_sess=dummy&sel_instr=dummy&sel_instr=%25&sel_ptrm=dummy&sel_ptrm=%25&begin_hh=5&begin_mi=0&begin_ap=a&end_hh=11&end_mi=0&end_ap=p&sel_subj=%25&sel_camp=1&aa=N';
+    const formStr = '&sel_subj=dummy&sel_day=dummy&sel_schd=dummy&sel_camp=dummy&sel_sess=dummy&sel_instr=dummy&sel_instr=%25&sel_ptrm=dummy&sel_ptrm=%25&begin_hh=5&begin_mi=0&begin_ap=a&end_hh=11&end_mi=0&end_ap=p&sel_subj=%25&aa=N';
     
     app.get('/api/v1/list/:location/:season-:year', cors(), (req, res) =>
     {
@@ -97,7 +101,8 @@ module.exports = (app) =>
         
         // Prepare the post query for the vcccd form
         const formData = 'TERM=' + req.params.year + seasons[req.params.season.toLowerCase()].term +
-            '&TERM_DESC=' + seasons[req.params.season.toLowerCase()].desc + '%20' + req.params.year + formStr;
+            '&TERM_DESC=' + seasons[req.params.season.toLowerCase()].desc + '%20' + req.params.year +
+            formStr + '&sel_camp=' + locations[req.params.location];
         
         // Send the POST request
         axios.post('https://ssb.vcccd.edu/prod/pw_pub_sched.p_listthislist', formData, {
