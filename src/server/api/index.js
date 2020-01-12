@@ -218,9 +218,44 @@ module.exports = (app) =>
                         addClass();
                         console.log('Reached end');
                     }
+                    else if(columns[1].text === '&')
+                    {
+                        // Extra information for the class in the last row
+                        if(columns.length === 3)
+                        {
+                            state.classData.extraNote = columns[2].text.trim();
+                        }
+                        else if(columns.length === 14)
+                        {
+                            state.classData.extraDays = '';
+                            for(let i = 2; i < 9; i++)
+                            {
+                                state.classData.extraDays += columns[i].text.trim();
+                            }
+                            state.classData.extraTime = columns[9].text.trim();
+                            state.classData.extraLocation = columns[10].text.trim();
+                            state.classData.extraDate = columns[12].text.trim();
+                        }
+                        else if(columns.length === 7)
+                        {
+                            state.classData.extraTime = columns[3].text.trim();
+                            state.classData.extraLocation = columns[4].text.trim();
+                            state.classData.extraDate = columns[6].text.trim();
+                        }
+                        else
+                        {
+                            console.log('Unhandled (' + columns.length + '):');
+                            let fullStr = '';
+                            for(let i = 0; i < columns.length; i++)
+                            {
+                                fullStr += columns[i].text + ';';
+                            }
+                            console.log('    ' + fullStr);
+                        }
+                    }
                     else
                     {
-                        console.log('Unhandled (' + columns.length + '):');
+                        console.log('REALLY Unhandled (' + columns.length + '):');
                         let fullStr = '';
                         for(let i = 0; i < columns.length; i++)
                         {
