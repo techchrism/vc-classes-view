@@ -17,6 +17,7 @@ module.exports = (app) =>
             const terms = [];
             const locations = [];
             
+            // Get the available semesters/terms
             $('select[name="term"]').children().each((i, item) =>
             {
                 terms.push({
@@ -25,16 +26,20 @@ module.exports = (app) =>
                 });
             });
     
+            // Get the available campuses
             $('select[name="sel_camp"]').children().each((i, item) =>
             {
-                if(item.attribs.value )
-                terms.push({
-                    name: item.children[0].data,
-                    value: item.attribs.value
-                });
+                // Exclude the <all> option
+                if(item.attribs.value !== '%')
+                {
+                    locations.push({
+                        name: item.children[0].data.trim(),
+                        value: item.attribs.value
+                    });
+                }
             });
             
-            res.send(JSON.stringify(terms, null, 4));
+            res.send(JSON.stringify({terms, locations}, null, 4));
         });
     });
     
@@ -60,7 +65,7 @@ module.exports = (app) =>
     };
     const formStr = '&sel_subj=dummy&sel_day=dummy&sel_schd=dummy&sel_camp=dummy&sel_sess=dummy&sel_instr=dummy&sel_instr=%25&sel_ptrm=dummy&sel_ptrm=%25&begin_hh=5&begin_mi=0&begin_ap=a&end_hh=11&end_mi=0&end_ap=p&sel_subj=%25&sel_camp=1&aa=N';
     
-    app.get('/api/v1/:location/:season-:year', cors(), (req, res) =>
+    app.get('/api/v1/list/:location/:season-:year', cors(), (req, res) =>
     {
         // Verify params are correctly formatted
         if(!locations.hasOwnProperty(req.params.location))
@@ -129,7 +134,7 @@ module.exports = (app) =>
             };
             // Finalized classes
             let classes = [];
-            let numClasses = '';
+            let classCount = 0;
             
             // Finalizes the class if one is in progress
             function addClass()
@@ -239,7 +244,6 @@ module.exports = (app) =>
                     {
                         // Finalize last class when the end has been reached
                         addClass();
-                        console.log('Reached end');
                     }
                     else if(columns[1].text === '&')
                     {
@@ -308,7 +312,7 @@ module.exports = (app) =>
                     else if(flags.centerTag)
                     {
                         flags.centerTag = false;
-                        numClasses = text.trim();
+                        classCount = parseInt((/You have (\d+) class/g).exec(text.trim())[1]);
                     }
                 },
                 onclosetag(tagname)
@@ -338,10 +342,10 @@ module.exports = (app) =>
             parser.write(response.data);
             parser.end();
             
-            // Send the classes as JSON and compare in console
-            res.send(JSON.stringify(classes, null, 4));
-            console.log(numClasses);
-            console.log('(got ' + classes.length + ' of them)');
+            res.send(JSON.stringify({
+                classes,
+                classCount
+            }, null, 4));
         }).catch(function (error)
         {
             console.log(error);
