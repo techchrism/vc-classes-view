@@ -6,6 +6,8 @@ Vue.use(Vuex);
 export default new Vuex.Store({
     state: {
         saved: [],
+        semesters: [],
+        locations: [],
         classes: [],
         offlineMeta: []
     },
@@ -20,8 +22,28 @@ export default new Vuex.Store({
         setClasses(state, classes)
         {
             state.classes = classes;
+        },
+        setSemesters(state, semesters)
+        {
+            state.semesters = semesters;
+        },
+        setLocations(state, locations)
+        {
+            state.locations = locations;
         }
     },
-    actions: {},
+    actions: {
+        fetchOptions({commit})
+        {
+            fetch('api/v1/options').then((response) =>
+            {
+                response.json().then((resData) =>
+                {
+                    commit('setSemesters', resData.terms);
+                    commit('setLocations', resData.locations);
+                });
+            });
+        }
+    },
     modules: {}
 });
